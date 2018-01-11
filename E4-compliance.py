@@ -4,6 +4,7 @@ from datetime import datetime as dt, timedelta
 from dateutil import tz
 import matplotlib.pyplot as plt
 import os
+import statistics as stat
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 SECONDS_PER_DAY = 86400
@@ -104,8 +105,9 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
     labels = []
     for day in days_to_percentages:
         if day <= 56:
-            avg_hours_per_day.append(sum(days_to_percentages[day])/len(days_to_percentages[day])*24)
-            std_devs.append(np.std(days_to_percentages[day]))
+            hours_for_day = [x*24 for x in days_to_percentages[day]]
+            avg_hours_per_day.append(sum(hours_for_day)/len(hours_for_day))
+            std_devs.append(stat.pstdev(hours_for_day))
             labels.append(day)
     if left:
         plt.bar(np.arange(len(labels)), avg_hours_per_day, color=[BLUE], yerr=std_devs)
@@ -115,6 +117,7 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
     plt.xlabel('Day in Study')
     plt.ylabel('Average # of Hours')
     plt.show()
+
 
 
 def map_days_to_percentages(participant_to_percentages_per_day):
@@ -276,20 +279,37 @@ def split_day_into_hours(day_segment):
 
 
 def make_hours_per_day_chart_from_data(directory, left):
-    percentages_per_day_by_all_participants = {}
+    percentages_per_day_by_all_participants = {}    # maps a participant to a list of their percentage compliance
     date_dic = get_date_dic('HAMD_final_scores.csv')
     for filename in get_files(directory):
         participant = filename[:4]
         start_date = date_dic[participant]['Week 0']
         days = split_into_days(directory+'/'+filename, left, start=start_date)
 
-        days = strip_first_week(date_dic, filename[:4], days)
+        days = strip_first_week(date_dic, participant, days)
         percentages_per_day = per_day_percentages(days)
         percentages_per_day_by_all_participants[filename] = percentages_per_day
     if left:
         chart_hours_per_day_average(percentages_per_day_by_all_participants, "Left Hand Compliance Data", left)
     else:
         chart_hours_per_day_average(percentages_per_day_by_all_participants, "Right Hand Compliance Data", left)
+
+
+def get_average_total_hours(directory, left):
+    all_percentages = []
+    date_dic = get_date_dic('HAMD_final_scores.csv')
+    for filename in get_files(directory):
+        participant = filename[:4]
+        start_date = date_dic[participant]['Week 0']
+        days = split_into_days(directory+'/'+filename, left, start=start_date)
+
+        days = strip_first_week(date_dic, participant, days)
+        percentages_per_day = per_day_percentages(days)
+        all_percentages += percentages_per_day
+
+    average = (sum(all_percentages)*24/len(all_percentages))
+    print("Average total number hours uploaded:", average)
+
 
 
 def get_hours_per_day_all_participants(directory):
@@ -366,8 +386,8 @@ def make_histogram_of_assessment_days():
     for participant in date_dic:
         assessments = date_dic[participant]
         for assessment_day in assessments:
-            if assessment_day != 'Screen':
-                day_difference = assessments[assessment_day] - assessments['Screen']
+            if assessment_day != 'Screen' and assessment_day != 'Week 0':
+                day_difference = assessments[assessment_day] - assessments['Week 0']
                 day_difference = day_difference.days
                 if day_difference not in hist_dic:
                     hist_dic[day_difference] = 0
@@ -375,7 +395,7 @@ def make_histogram_of_assessment_days():
     assessment_days = [0 for x in range(max(hist_dic.keys())+1)]
     for key in hist_dic:
         assessment_days[key] = hist_dic[key]
-    plt.bar(np.arange(len(assessment_days)), assessment_days)
+    plt.bar(np.arange(len(assessment_days)), assessment_days, color=GREEN)
     plt.title('Assessment days over days in study')
     plt.xlabel('Day in Study')
     plt.ylabel('Number of participants')
@@ -384,9 +404,11 @@ def make_histogram_of_assessment_days():
 
 # make_histogram_of_assessment_days()
 
-save_chart_one_by_one(NEW_FILES)
+# save_chart_one_by_one(NEW_FILES)
 
-# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
+# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=False)
+
+# get_average_total_hours(TEMP_DIRECTORY, left=False)
 
 # print(pd.read_hdf(NEW_FILES+'/M042_temp.h5', 'TEMP_left'))
 
