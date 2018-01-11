@@ -18,6 +18,7 @@ GREEN = '#5AD381'
 YELLOW = '#F7D158'
 PURPLE = '#7D5AD3'
 
+
 def get_manual_isotime_string(time_string):
     time = pd.datetime.strptime(time_string, DATE_FORMAT)
     time.isoformat(' ')
@@ -29,7 +30,7 @@ def integerize(string):
     for char in string:
         try:
             s += str(int(char))
-        except:
+        except TypeError:
             pass
     return s
 
@@ -61,7 +62,7 @@ def percentage_of_one_day_2(segment):   # segment must be temp hdf segment for e
     temp_col = get_temp_col(segment)
     pared = []
     for i in range(len(temp_col)):
-        if temp_col[i] >= 31 and temp_col[i] <=40:
+        if 31 <= temp_col[i] <= 40:
             pared.append(temp_col[i])
     return len(pared)*.25/SECONDS_PER_DAY
 
@@ -119,7 +120,6 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
     plt.show()
 
 
-
 def map_days_to_percentages(participant_to_percentages_per_day):
     days_to_percentages = {}
     for participant in participant_to_percentages_per_day:
@@ -147,7 +147,7 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
     ind = np.arange(max(len(hours_per_day_left), len(hours_per_day_right)))
     width = 0.35
 
-    fig, ax = plt.subplots(figsize=(20,10))
+    fig, ax = plt.subplots(figsize=(20, 10))
     rects_left = ax.bar(np.arange(len(hours_per_day_left)), hours_per_day_left, width, color=BLUE, label='Left')
     rects_right = ax.bar(np.arange(len(hours_per_day_right))+width, hours_per_day_right, width, color=RED, label='Right')
     labels = ['' for x in range(number_samples)]
@@ -165,7 +165,7 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
     ax.set_title(name+"'s Compliance")
     ax.set_xticks(ind+width/2)
     try:
-        ax.legend((rects_left[1],rects_right[1]),('Left Hand', 'Right Hand'))
+        ax.legend((rects_left[1], rects_right[1]), ('Left Hand', 'Right Hand'))
     except IndexError:
         ax.legend((rects_left[0], rects_right[0]), ('Left Hand', 'Right Hand'))
 
@@ -311,7 +311,6 @@ def get_average_total_hours(directory, left):
     print("Average total number hours uploaded:", average)
 
 
-
 def get_hours_per_day_all_participants(directory):
     left_hand_percentage_per_day = {}
     right_hand_percentage_per_day = {}
@@ -323,7 +322,7 @@ def get_hours_per_day_all_participants(directory):
         left_hand_percentage_per_day[filename] = left_percentages
         right_hand_percentage_per_day[filename] = right_percentages
 
-    return (left_hand_percentage_per_day, right_hand_percentage_per_day)
+    return left_hand_percentage_per_day, right_hand_percentage_per_day
 
 
 def save_chart_one_by_one(directory):
@@ -352,7 +351,6 @@ def save_chart_one_by_one(directory):
     save_chart_hours_per_day_per_person(participant, left_percentages, right_percentages, day_of_study_assessments, assessments)
 
 
-
 def strip_first_week(date_dic, participant, days):
     assessments = date_dic[participant]
     days_to_remove = assessments['Week 0'] - assessments['Screen']
@@ -361,7 +359,7 @@ def strip_first_week(date_dic, participant, days):
 
 
 def get_date_dic(dates_csv_filepath):
-    dates = pd.read_csv(dates_csv_filepath, index_col=0, usecols=['ID','Name', 'date'])
+    dates = pd.read_csv(dates_csv_filepath, index_col=0, usecols=['ID', 'Name', 'date'])
     participants = sorted(list(set(dates.index.values)))
     date_dic = {}
     for participant in participants:
