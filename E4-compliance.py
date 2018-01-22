@@ -442,9 +442,9 @@ def make_histogram_of_assessment_days():
 
 # make_histogram_of_assessment_days()
 
-# save_chart_one_by_one(TEMP_DIRECTORY)
+save_chart_one_by_one(TEMP_DIRECTORY)
 
-make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
+# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
 
 # get_average_total_hours(TEMP_DIRECTORY, left=False)
 
