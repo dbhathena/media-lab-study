@@ -9,7 +9,7 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 SECONDS_PER_DAY = 86400
 COMPLIANCE_THRESHOLD = SECONDS_PER_DAY/2
 SECONDS_PER_HOUR = 3600
-TEMP_DIRECTORY = 'test-temp-files'
+TEMP_DIRECTORY = '../test-temp-files'
 NEW_FILES = 'new-files'
 BLUE = '#2C55CA'
 RED = '#D63434'
@@ -424,9 +424,10 @@ def make_histogram_of_assessment_days():
             if assessment_day != 'Screen' and assessment_day != 'Week 0':
                 day_difference = assessments[assessment_day] - assessments['Week 0']
                 day_difference = day_difference.days
-                if day_difference not in hist_dic:
-                    hist_dic[day_difference] = 0
-                hist_dic[day_difference] += 1
+                if day_difference <= 70:
+                    if day_difference not in hist_dic:
+                        hist_dic[day_difference] = 0
+                    hist_dic[day_difference] += 1
     assessment_days = [0 for x in range(max(hist_dic.keys())+1)]
     for key in hist_dic:
         assessment_days[key] = hist_dic[key]
@@ -443,7 +444,7 @@ def make_histogram_of_assessment_days():
 
 # save_chart_one_by_one(TEMP_DIRECTORY)
 
-make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=False)
+make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
 
 # get_average_total_hours(TEMP_DIRECTORY, left=False)
 
