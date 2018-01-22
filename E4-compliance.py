@@ -9,13 +9,14 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 SECONDS_PER_DAY = 86400
 COMPLIANCE_THRESHOLD = SECONDS_PER_DAY/2
 SECONDS_PER_HOUR = 3600
-TEMP_DIRECTORY = 'test-temp-files'
+TEMP_DIRECTORY = '../test-temp-files'
 NEW_FILES = 'new-files'
 BLUE = '#2C55CA'
 RED = '#D63434'
 GREEN = '#5AD381'
 YELLOW = '#F7D158'
 PURPLE = '#7D5AD3'
+
 
 def get_manual_isotime_string(time_string):
     time = pd.datetime.strptime(time_string, DATE_FORMAT)
@@ -28,7 +29,7 @@ def integerize(string):
     for char in string:
         try:
             s += str(int(char))
-        except:
+        except TypeError:
             pass
     return s
 
@@ -49,20 +50,11 @@ def get_eda_col(segment):
 
 def percentage_of_one_day(segment):   # segment must be temp hdf segment for exactly one day
     temp_col = get_temp_col(segment)
-    pared = []
+    pared = 0
     for i in range(len(temp_col)):
         if temp_col[i] >= 31:
-            pared.append(temp_col[i])
-    return len(pared)*.25/SECONDS_PER_DAY
-
-
-def percentage_of_one_day_2(segment):   # segment must be temp hdf segment for exactly one day
-    temp_col = get_temp_col(segment)
-    pared = []
-    for i in range(len(temp_col)):
-        if temp_col[i] >= 31 and temp_col[i] <=40:
-            pared.append(temp_col[i])
-    return len(pared)*.25/SECONDS_PER_DAY
+            pared += 1
+    return pared*.25/SECONDS_PER_DAY
 
 
 def per_day_percentages(days):
@@ -70,6 +62,15 @@ def per_day_percentages(days):
     for day in days:
         percentages.append(percentage_of_one_day(day))
     return percentages
+
+
+def percentage_of_one_hour(segment):    # segment must be temp hdf segment of exactly one hour
+    temp_col = get_temp_col(segment)
+    pared = 0
+    for i in range(len(temp_col)):
+        if temp_col[i] >= 31:
+            pared += 1
+    return min(1.0, pared*.25/3600)
 
 
 def percentage_of_days_compliant(percentages_per_day):
@@ -103,10 +104,10 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
     std_devs = []
     labels = []
     for day in days_to_percentages:
-        if day <= 56:
-            avg_hours_per_day.append(sum(days_to_percentages[day])/len(days_to_percentages[day])*24)
-            std_devs.append(np.std(days_to_percentages[day]))
-            labels.append(day)
+        hours_for_day = [x*24 for x in days_to_percentages[day]]
+        avg_hours_per_day.append(sum(hours_for_day)/len(hours_for_day))
+        std_devs.append(np.std(hours_for_day))
+        labels.append(day)
     if left:
         plt.bar(np.arange(len(labels)), avg_hours_per_day, color=[BLUE], yerr=std_devs)
     else:
@@ -144,7 +145,7 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
     ind = np.arange(max(len(hours_per_day_left), len(hours_per_day_right)))
     width = 0.35
 
-    fig, ax = plt.subplots(figsize=(20,10))
+    fig, ax = plt.subplots(figsize=(20, 10))
     rects_left = ax.bar(np.arange(len(hours_per_day_left)), hours_per_day_left, width, color=BLUE, label='Left')
     rects_right = ax.bar(np.arange(len(hours_per_day_right))+width, hours_per_day_right, width, color=RED, label='Right')
     labels = ['' for x in range(number_samples)]
@@ -162,7 +163,7 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
     ax.set_title(name+"'s Compliance")
     ax.set_xticks(ind+width/2)
     try:
-        ax.legend((rects_left[1],rects_right[1]),('Left Hand', 'Right Hand'))
+        ax.legend((rects_left[1], rects_right[1]), ('Left Hand', 'Right Hand'))
     except IndexError:
         ax.legend((rects_left[0], rects_right[0]), ('Left Hand', 'Right Hand'))
 
@@ -170,15 +171,16 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
 
     plt.savefig('individual-compliance-data/'+name+'.png')
     print(name+'.png has been created')
+    print()
     plt.close()
 
 
 def split_into_days(hdf_temp_filepath, left, start=None):
 
     acc_first_row_left = pd.read_hdf(hdf_temp_filepath, 'TEMP_left')
-    acc_first_row_left.sort_index()
+    acc_first_row_left = acc_first_row_left.sort_index()
     acc_first_row_right = pd.read_hdf(hdf_temp_filepath, 'TEMP_right')
-    acc_first_row_right.sort_index()
+    acc_first_row_right = acc_first_row_right.sort_index()
 
     if not start:
         start_date_left = np.min(acc_first_row_left.index.values)
@@ -209,49 +211,23 @@ def split_into_days(hdf_temp_filepath, left, start=None):
             hdf_in_days.append(acc_first_row_left.loc[beginning:end])
         else:
             # print('right', beginning, end)
-            hdf_in_days.append(acc_first_row_right.loc[beginning:end])
+            try:
+                test = acc_first_row_right.loc[beginning:end]
+            except:
+                print(beginning, end)
+                quit()
+            hdf_in_days.append(test)
     # print()
     return hdf_in_days
 
 
-def split_into_hours(hdf_temp_filepath, left=True):
-    acc_first_row_left = pd.read_hdf(hdf_temp_filepath, 'TEMP_left')
-    start_date_left = np.min(acc_first_row_left.index.values)
-    end_date_left = np.max(acc_first_row_left.index.values)
-
-    acc_first_row_right = pd.read_hdf(hdf_temp_filepath, 'TEMP_right')
-    start_date_right = np.min(acc_first_row_right.index.values)
-    end_date_right = np.max(acc_first_row_right.index.values)
-
-    start_date = min(start_date_left, start_date_right)
-    # convert to datetime
-    start_date = dt.utcfromtimestamp(start_date.tolist() / 1e9)
-
-    start_date = start_date.replace(tzinfo=tz.gettz('UTC')).astimezone(
-        tz.gettz('America/New_York'))
-    start_date = start_date.replace(hour=0, minute=0, second=0)
-    end_date = max(end_date_left, end_date_right)
-    # convert to datetime
-    end_date = dt.utcfromtimestamp(end_date.tolist() / 1e9)
-    end_date = end_date.replace(tzinfo=tz.gettz('UTC')).astimezone(
-        tz.gettz('America/New_York'))
-    end_date = end_date.replace(hour=0, minute=0, second=0)
-    rng = pd.date_range(start_date, end_date, freq='H')
-
-    hdf_in_hours = []
-    for idx, beginning in enumerate(rng):
-        end = beginning + timedelta(hours=1)
-        if left:
-            hdf_in_hours.append(acc_first_row_left.loc[beginning:end])
-        else:
-            hdf_in_hours.append(acc_first_row_right.loc[beginning:end])
-
-    return hdf_in_hours
-
-
-def split_day_into_hours(day_segment):
+def split_day_into_hours(day_segment, is_print=False):
     start_date = np.min(day_segment.index.values)
-    end_date = np.max(day_segment.index.values)
+    end_date = start_date + np.timedelta64(1, 'D')
+
+    if is_print:
+        print(start_date, end_date)
+        print()
 
     # convert to datetime
     start_date = dt.utcfromtimestamp(start_date.tolist() / 1e9)
@@ -265,7 +241,7 @@ def split_day_into_hours(day_segment):
     end_date = end_date.replace(tzinfo=tz.gettz('UTC')).astimezone(
         tz.gettz('America/New_York'))
     end_date = end_date.replace(hour=0, minute=0, second=0)
-    rng = pd.date_range(start_date, end_date, freq='H')
+    rng = pd.date_range(start_date, end_date, freq='H', closed='left')
 
     hdf_in_hours = []
     for idx, beginning in enumerate(rng):
@@ -275,21 +251,103 @@ def split_day_into_hours(day_segment):
     return hdf_in_hours
 
 
+def make_minutes_per_hour_chart_from_data(directory, left):
+    # maps a participant to a list of their average percentage compliance for each hour of the day
+    participant_to_percentages_of_hours = {}
+    date_dic = get_date_dic('HAMD_final_scores.csv')
+    for filename in get_files(directory):
+        participant = filename[:4]
+        print("Starting " + participant)
+        start_date = date_dic[participant]['Week 0']
+        days = split_into_days(directory+'/'+filename, left, start=start_date)
+
+        days_in_hours = []
+        for day in days:
+            if day.empty:
+                percentages_per_hour_for_day = [0.0]*24
+            else:
+                hours_for_day = split_day_into_hours(day)
+                percentages_per_hour_for_day = []
+                for hour in hours_for_day:
+                    percentages_per_hour_for_day.append(percentage_of_one_hour(hour))
+            days_in_hours.append(percentages_per_hour_for_day)
+
+        hour_percentages = []
+        for hour in range(24):
+            num_days = len(days_in_hours)
+            sum_of_percentages = 0
+            for day in days_in_hours:
+                if hour < len(day):
+                    sum_of_percentages += day[hour]
+            hour_percentages.append(sum_of_percentages/num_days)
+        participant_to_percentages_of_hours[participant] = hour_percentages
+        print(participant + " has been finished")
+        print()
+
+    if left:
+        chart_minutes_per_day_average(participant_to_percentages_of_hours, "Left Hand Compliance Data", left)
+    else:
+        chart_minutes_per_day_average(participant_to_percentages_of_hours, "Right Hand Compliance Data", left)
+
+
+def chart_minutes_per_day_average(participant_to_percentages_of_hours, title, left):
+    avg_mins_per_hour = []
+    std_devs = []
+    labels = []
+    for hour in range(24):
+        percentages= []
+        for participant in participant_to_percentages_of_hours:
+            percentages.append(participant_to_percentages_of_hours[participant][hour]*60)
+        avg_mins_per_hour.append(sum(percentages)/len(percentages))
+        std_devs.append(np.std(percentages))
+        labels.append(hour+1)
+    y_pos = np.arange(len(labels))
+    if left:
+        plt.bar(y_pos, avg_mins_per_hour, color=[BLUE], yerr=std_devs)
+    else:
+        plt.bar(np.arange(len(labels)), avg_mins_per_hour, color=[RED], yerr=std_devs)
+    plt.title(title)
+    plt.xlabel('Hour of Day')
+    plt.yticks([10, 20, 30, 40, 50, 60])
+    plt.xticks(y_pos, labels)
+    plt.ylabel('Average # of Minutes')
+    plt.show()
+
+
 def make_hours_per_day_chart_from_data(directory, left):
-    percentages_per_day_by_all_participants = {}
+    percentages_per_day_by_all_participants = {}    # maps a participant to a list of their percentage compliance
+    date_dic = get_date_dic('HAMD_final_scores.csv')
+    for filename in get_files(directory):
+        participant = filename[:4]
+        print("Starting " + participant)
+        start_date = date_dic[participant]['Week 0']
+        days = split_into_days(directory+'/'+filename, left, start=start_date)
+
+        days = strip_first_week(date_dic, participant, days)
+        percentages_per_day = per_day_percentages(days)
+        percentages_per_day_by_all_participants[filename] = percentages_per_day
+        print(participant + " has been finished")
+        print()
+    if left:
+        chart_hours_per_day_average(percentages_per_day_by_all_participants, "Left Hand Compliance Data", left)
+    else:
+        chart_hours_per_day_average(percentages_per_day_by_all_participants, "Right Hand Compliance Data", left)
+
+
+def get_average_total_hours(directory, left):
+    all_percentages = []
     date_dic = get_date_dic('HAMD_final_scores.csv')
     for filename in get_files(directory):
         participant = filename[:4]
         start_date = date_dic[participant]['Week 0']
         days = split_into_days(directory+'/'+filename, left, start=start_date)
 
-        days = strip_first_week(date_dic, filename[:4], days)
+        days = strip_first_week(date_dic, participant, days)
         percentages_per_day = per_day_percentages(days)
-        percentages_per_day_by_all_participants[filename] = percentages_per_day
-    if left:
-        chart_hours_per_day_average(percentages_per_day_by_all_participants, "Left Hand Compliance Data", left)
-    else:
-        chart_hours_per_day_average(percentages_per_day_by_all_participants, "Right Hand Compliance Data", left)
+        all_percentages += percentages_per_day
+
+    average = (sum(all_percentages)*24/len(all_percentages))
+    print("Average total number hours uploaded:", average)
 
 
 def get_hours_per_day_all_participants(directory):
@@ -303,7 +361,7 @@ def get_hours_per_day_all_participants(directory):
         left_hand_percentage_per_day[filename] = left_percentages
         right_hand_percentage_per_day[filename] = right_percentages
 
-    return (left_hand_percentage_per_day, right_hand_percentage_per_day)
+    return left_hand_percentage_per_day, right_hand_percentage_per_day
 
 
 def save_chart_one_by_one(directory):
@@ -311,26 +369,23 @@ def save_chart_one_by_one(directory):
     for filename in get_files(directory):
     # filename = 'M001_temp.h5'
         print("Trying to create "+filename)
-        try:
-            participant = filename[:4]
-            start_date = date_dic[participant]['Week 0']
-            left_days = split_into_days(directory + '/' + filename, left=True, start=start_date)
-            right_days = split_into_days(directory + '/' + filename, left=False, start=start_date)
-            assessments = date_dic[participant]
-            assessments.pop('Screen')
-            day_of_study_assessments = {}
-            for assessment_day in assessments:
-                day_difference = assessments[assessment_day] - assessments['Week 0']
-                day_difference = day_difference.days
-                day_of_study_assessments[day_difference] = assessment_day
-        except:
-            print('Error on ' + filename)
-        print()
-
-    left_percentages = per_day_percentages(left_days)
-    right_percentages = per_day_percentages(right_days)
-    save_chart_hours_per_day_per_person(participant, left_percentages, right_percentages, day_of_study_assessments, assessments)
-
+        # try:
+        participant = filename[:4]
+        start_date = date_dic[participant]['Week 0']
+        left_days = split_into_days(directory + '/' + filename, left=True, start=start_date)
+        right_days = split_into_days(directory + '/' + filename, left=False, start=start_date)
+        assessments = date_dic[participant]
+        assessments.pop('Screen')
+        day_of_study_assessments = {}
+        for assessment_day in assessments:
+            day_difference = assessments[assessment_day] - assessments['Week 0']
+            day_difference = day_difference.days
+            day_of_study_assessments[day_difference] = assessment_day
+        # except:
+        #     print('Error on ' + filename)
+        left_percentages = per_day_percentages(left_days)
+        right_percentages = per_day_percentages(right_days)
+        save_chart_hours_per_day_per_person(participant, left_percentages, right_percentages, day_of_study_assessments, assessments)
 
 
 def strip_first_week(date_dic, participant, days):
@@ -341,7 +396,7 @@ def strip_first_week(date_dic, participant, days):
 
 
 def get_date_dic(dates_csv_filepath):
-    dates = pd.read_csv(dates_csv_filepath, index_col=0, usecols=['ID','Name', 'date'])
+    dates = pd.read_csv(dates_csv_filepath, index_col=0, usecols=['ID', 'Name', 'date'])
     participants = sorted(list(set(dates.index.values)))
     date_dic = {}
     for participant in participants:
@@ -352,7 +407,7 @@ def get_date_dic(dates_csv_filepath):
             name = row['Name']
             date = row['date']
             if isinstance(date, str):
-                date_dic[participant][name] = string_to_datetime(date+' -0400')
+                date_dic[participant][name] = dt.strptime(date, '%m/%d/%y').replace(tzinfo=tz.gettz('America/New_York'))
     return date_dic
 
 
@@ -366,27 +421,32 @@ def make_histogram_of_assessment_days():
     for participant in date_dic:
         assessments = date_dic[participant]
         for assessment_day in assessments:
-            if assessment_day != 'Screen':
-                day_difference = assessments[assessment_day] - assessments['Screen']
+            if assessment_day != 'Screen' and assessment_day != 'Week 0':
+                day_difference = assessments[assessment_day] - assessments['Week 0']
                 day_difference = day_difference.days
-                if day_difference not in hist_dic:
-                    hist_dic[day_difference] = 0
-                hist_dic[day_difference] += 1
+                if day_difference <= 70:
+                    if day_difference not in hist_dic:
+                        hist_dic[day_difference] = 0
+                    hist_dic[day_difference] += 1
     assessment_days = [0 for x in range(max(hist_dic.keys())+1)]
     for key in hist_dic:
         assessment_days[key] = hist_dic[key]
-    plt.bar(np.arange(len(assessment_days)), assessment_days)
+    plt.bar(np.arange(len(assessment_days)), assessment_days, color=GREEN)
     plt.title('Assessment days over days in study')
     plt.xlabel('Day in Study')
     plt.ylabel('Number of participants')
     plt.show()
 
 
+# make_minutes_per_hour_chart_from_data(TEMP_DIRECTORY, left=True)
+
 # make_histogram_of_assessment_days()
 
-save_chart_one_by_one(NEW_FILES)
+# save_chart_one_by_one(TEMP_DIRECTORY)
 
-# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
+make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
+
+# get_average_total_hours(TEMP_DIRECTORY, left=False)
 
 # print(pd.read_hdf(NEW_FILES+'/M042_temp.h5', 'TEMP_left'))
 
