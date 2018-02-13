@@ -16,6 +16,7 @@ RED = '#D63434'
 GREEN = '#5AD381'
 YELLOW = '#F7D158'
 PURPLE = '#7D5AD3'
+GRAY = '0.2'
 
 
 def get_manual_isotime_string(time_string):
@@ -120,9 +121,9 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
 
 def chart_hours_per_day_averages_together(participant_to_percentages_per_day_left,
                                           participant_to_percentages_per_day_right, title):
-    print("LEFT:", participant_to_percentages_per_day_left)
-    print()
-    print("RIGHT:", participant_to_percentages_per_day_right)
+    # print("LEFT:", participant_to_percentages_per_day_left)
+    # print()
+    # print("RIGHT:", participant_to_percentages_per_day_right)
     days_to_percentages_left = map_days_to_percentages(participant_to_percentages_per_day_left)
     days_to_percentages_right = map_days_to_percentages(participant_to_percentages_per_day_right)
     avg_hours_per_day_left = []
@@ -142,10 +143,15 @@ def chart_hours_per_day_averages_together(participant_to_percentages_per_day_lef
     width = 0.4
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    rects_left = ax.errorbar(np.arange(len(avg_hours_per_day_left)), avg_hours_per_day_left, width, color=BLUE,
+    rects_left = ax.bar(np.arange(len(avg_hours_per_day_left)), avg_hours_per_day_left, width, color=BLUE,
                         label='Left', yerr=std_devs_left)
     rects_right = ax.bar(np.arange(len(avg_hours_per_day_right)) + width, avg_hours_per_day_right, width, color=RED,
                         label='Right', yerr=std_devs_right)
+
+    rects_left.errorbar = ax.errorbar(x=np.arange(len(avg_hours_per_day_left)), y=avg_hours_per_day_left,
+                                      yerr=std_devs_left, ecolor=GRAY, fmt='none')
+    rects_right.errorbar = ax.errorbar(x=np.arange(len(avg_hours_per_day_right)) + width, y=avg_hours_per_day_right,
+                                       yerr=std_devs_right, ecolor=GRAY, fmt='none')
 
     num_samples = max(len(avg_hours_per_day_left), len(avg_hours_per_day_right))
     labels = ['' for x in range(num_samples)]
@@ -165,8 +171,48 @@ def chart_hours_per_day_averages_together(participant_to_percentages_per_day_lef
 
     ax.set_xticklabels(labels)
 
+    save_hours_per_day_chart_total(range(num_samples), avg_hours_per_day_left, std_devs_left, avg_hours_per_day_right, std_devs_right)
     plt.show()
 
+
+def save_hours_per_day_chart_total(days, hours_per_day_left, std_devs_left, hours_per_day_right, std_devs_right):
+    file = open("average-compliance/Hours per Day/Hours_per_day_total.txt", 'w')
+    file.write("Day in Study     left hand hours     left hand error     right hand hours     right hand error\n")
+    file.write("------------     ---------------     ---------------     ----------------     ----------------\n")
+    for day in days:
+        spaces = ""
+        if day < len(hours_per_day_left):
+            hours_left = "{0:.2f}".format(hours_per_day_left[day])
+            len_left = len(hours_left)
+            for i in range(5 - len_left):
+                hours_left += " "
+
+            std_dev_left = "{0:.2f}".format(std_devs_left[day])
+            len_std_left = len(std_dev_left)
+            for i in range(5-len_std_left):
+                std_dev_left += " "
+        else:
+            hours_left = "     "
+            std_dev_left = "     "
+
+        if day < len(hours_per_day_right):
+            hours_right = "{0:.2f}".format(hours_per_day_right[day])
+            len_right = len(hours_right)
+            for i in range(5 - len_right):
+                hours_right += " "
+            std_dev_right = "{0:.2f}".format(std_devs_right[day])
+            len_std_right = len(std_dev_right)
+            for i in range(5 - len_std_right):
+                std_dev_right += " "
+        else:
+            hours_right = "     "
+            std_dev_right = "     "
+
+        for i in range(2 - len(str(day))):
+            spaces += " "
+        file.write(str(day) + spaces + "                    " + hours_left + "               " + std_dev_left +
+                   "               " + hours_right + "                " + std_dev_right + "\n")
+    file.close()
 
 def map_days_to_percentages(participant_to_percentages_per_day):
     days_to_percentages = {}
@@ -218,12 +264,33 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
         ax.legend((rects_left[0], rects_right[0]), ('Left Hand', 'Right Hand'))
 
     ax.set_xticklabels(labels)
-
-    plt.savefig('individual-compliance-data/'+name+'.png')
+    os.mkdir("individual-compliance-data/" + name)
+    plt.savefig('individual-compliance-data/'+name+'/'+name+".png")
     print(name+'.png has been created')
+    save_hours_per_day_chart_for_person(name, ind, hours_per_day_left, hours_per_day_right)
+    print(name+'.txt has been created')
     print()
     plt.close()
 
+
+def save_hours_per_day_chart_for_person(name, days, hours_per_day_left, hours_per_day_right):
+    file = open("individual-compliance-data/"+name+"/"+name+".txt", 'w')
+    file.write("Day in Study       left hand       right hand\n")
+    file.write("------------       ---------       ----------\n")
+    for day in days:
+        spaces = ""
+        hours_left = "{0:.2f}".format(hours_per_day_left[day])
+        len_left = len(hours_left)
+        for i in range(5 - len_left):
+            hours_left += " "
+        hours_right = "{0:.2f}".format(hours_per_day_right[day])
+        len_right = len(hours_right)
+        for i in range(5 - len_right):
+            hours_right += " "
+        for i in range(2-len(str(day))):
+            spaces += " "
+        file.write(str(day) + spaces + "                   "+hours_left+"            " + hours_right + "\n")
+    file.close()
 
 def split_into_days(hdf_temp_filepath, left, start=None):
 
@@ -457,6 +524,11 @@ def chart_minutes_per_day_average_together(participant_to_percentages_of_hours_l
     rects_right = ax.bar(y_pos + width, avg_mins_per_hour_right, width, color=RED,
                          label='Right', yerr=std_devs_right)
 
+    rects_left.errorbar = ax.errorbar(x=y_pos, y=avg_mins_per_hour_left,
+                                      yerr=std_devs_left, ecolor=GRAY, fmt='none')
+    rects_right.errorbar = ax.errorbar(x=y_pos + width, y=avg_mins_per_hour_right,
+                                       yerr=std_devs_right, ecolor=GRAY, fmt='none')
+
     ax.set_xlabel('Hour of Day')
     ax.set_ylabel('Average # of minutes')
     ax.set_title(title)
@@ -512,19 +584,22 @@ def make_hours_per_day_chart_from_data(directory, left):
         chart_hours_per_day_average(percentages_per_day_by_all_participants, "Right Hand Compliance Data", left)
 
 
-def get_average_total_hours(directory, left):
+def get_average_hours(directory, left):
     all_percentages = []
     date_dic = get_date_dic('HAMD_final_scores.csv')
+    participants_to_average = {}
     for filename in get_files(directory):
         participant = filename[:4]
         start_date = date_dic[participant]['Week 0']
         days = split_into_days(directory+'/'+filename, left, start=start_date)
 
         percentages_per_day = per_day_percentages(days)
-        all_percentages += percentages_per_day
+        all_percentages.extend(percentages_per_day)
+        participants_to_average[participant] = sum(percentages_per_day)*24/len(percentages_per_day)
 
-    average = (sum(all_percentages)*24/len(all_percentages))
+    average = sum(all_percentages)*24/len(all_percentages)
     print("Average total number hours uploaded:", average)
+    return (average, participants_to_average)
 
 
 def get_hours_per_day_all_participants(directory):
@@ -608,19 +683,86 @@ def make_histogram_of_assessment_days():
     plt.show()
 
 
-make_average_hours_per_day_chart_both_hands(TEMP_DIRECTORY)
+def write_average_percentages_file():
+    average_percentages_file = open("average_hours_compliance.txt", 'w')
+    average_total_hours_left, participants_left_averages = get_average_hours(TEMP_DIRECTORY, True)
+    average_total_hours_right, participants_right_averages = get_average_hours(TEMP_DIRECTORY, False)
+    average_percentages_file.write("Participant     Left Hand     Right Hand\n")
+    average_percentages_file.write("-----------     ---------     ----------\n")
+    for participant in participants_left_averages:
+        average_hours_left = "{0:.2f}".format(participants_left_averages[participant])
+        len_left = len(average_hours_left)
+        for i in range(5-len_left):
+            average_hours_left += " "
+        average_hours_right = "{0:.2f}".format(participants_right_averages[participant])
+        len_right = len(average_hours_right)
+        for i in range(5-len_right):
+            average_hours_right += " "
+        average_percentages_file.write(participant + "              " + average_hours_left + "         " + average_hours_right + "    \n")
+
+    average_percentages_file.write("-----------     ---------     ----------\n")
+
+    average_total_hours_left = "{0:.2f}".format(average_total_hours_left)
+    len_total_left = len(average_total_hours_left)
+    for i in range(5-len_total_left):
+        average_total_hours_left += " "
+    average_total_hours_right = "{0:.2f}".format(average_total_hours_right)
+    len_total_right = len(average_total_hours_right)
+    for i in range(5-len_total_right):
+        average_total_hours_right += " "
+    average_percentages_file.write("Total             " + average_total_hours_left + "         " + average_total_hours_right)
+
+
+def plot_individuals_to_days_uploaded():
+    date_dic = get_date_dic("HAMD_final_scores.csv")
+    participants = []
+    days_per_participant = []
+    for participant in date_dic:
+        if 'Week 8' in date_dic[participant]:
+            number_of_days = date_dic[participant]['Week 8'] - date_dic[participant]['Week 0']
+            number_of_days = number_of_days.days
+        elif 'Week 6' in date_dic[participant]:
+            number_of_days = date_dic[participant]['Week 6'] - date_dic[participant]['Week 0']
+            number_of_days = number_of_days.days
+        elif 'Week 4' in date_dic[participant]:
+            number_of_days = date_dic[participant]['Week 4'] - date_dic[participant]['Week 0']
+            number_of_days = number_of_days.days
+        elif 'Week 2' in date_dic[participant]:
+            number_of_days = date_dic[participant]['Week 2'] - date_dic[participant]['Week 0']
+            number_of_days = number_of_days.days
+        else:
+            number_of_days = 0
+        participants.append(participant)
+        days_per_participant.append(number_of_days)
+
+    plt.bar(np.arange(len(participants)), days_per_participant, color=GREEN)
+    plt.xlabel("Participant")
+    plt.ylabel("Number of days")
+    plt.title("Days participated in study")
+    plt.xticks(np.arange(len(participants)), participants, rotation='vertical')
+    plt.yticks(np.arange(0, (max(days_per_participant)+10)//10*10 + 1, 10))
+    plt.show()
+
+
+plot_individuals_to_days_uploaded()
+
+# make_average_hours_per_day_chart_both_hands(TEMP_DIRECTORY)
 
 # make_minutes_per_hour_chart_both_hands(TEMP_DIRECTORY)
 
 # make_minutes_per_hour_chart_from_data(TEMP_DIRECTORY, left=True)
+# make_minutes_per_hour_chart_from_data(TEMP_DIRECTORY, left=False)
 
 # make_histogram_of_assessment_days()
 
 # save_chart_one_by_one(TEMP_DIRECTORY)
 
 # make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
+# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=False)
 
-# get_average_total_hours(TEMP_DIRECTORY, left=False)
+# get_average_hours(TEMP_DIRECTORY, left=False)
+
+# write_average_percentages_file()
 
 # print(pd.read_hdf(NEW_FILES+'/M042_temp.h5', 'TEMP_left'))
 
