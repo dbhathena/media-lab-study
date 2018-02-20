@@ -53,7 +53,7 @@ def percentage_of_one_day(segment):   # segment must be temp hdf segment for exa
     temp_col = get_temp_col(segment)
     pared = 0
     for i in range(len(temp_col)):
-        if temp_col[i] >= 31:
+        if temp_col[i] >= 25:
             pared += 1
     return pared*.25/SECONDS_PER_DAY
 
@@ -105,6 +105,8 @@ def chart_hours_per_day_average(participant_to_percentages_per_day, title, left)
     std_devs = []
     labels = []
     for day in days_to_percentages:
+        if day >= 56:
+            break
         hours_for_day = [x*24 for x in days_to_percentages[day]]
         avg_hours_per_day.append(sum(hours_for_day)/len(hours_for_day))
         std_devs.append(np.std(hours_for_day))
@@ -131,10 +133,14 @@ def chart_hours_per_day_averages_together(participant_to_percentages_per_day_lef
     std_devs_left = []
     std_devs_right = []
     for day in days_to_percentages_left:
+        if day >= 56:
+            break
         hours_for_day = [x*24 for x in days_to_percentages_left[day]]
         avg_hours_per_day_left.append(sum(hours_for_day)/len(hours_for_day))
         std_devs_left.append(np.std(hours_for_day))
     for day in days_to_percentages_right:
+        if day >= 56:
+            break
         hours_for_day = [x*24 for x in days_to_percentages_right[day]]
         avg_hours_per_day_right.append(sum(hours_for_day)/len(hours_for_day))
         std_devs_right.append(np.std(hours_for_day))
@@ -744,7 +750,7 @@ def plot_individuals_to_days_uploaded():
     plt.show()
 
 
-plot_individuals_to_days_uploaded()
+# plot_individuals_to_days_uploaded()
 
 # make_average_hours_per_day_chart_both_hands(TEMP_DIRECTORY)
 
