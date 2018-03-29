@@ -265,7 +265,8 @@ def save_chart_hours_per_day_per_person(name, left_data, right_data, day_of_stud
         ax.legend((rects_left[0], rects_right[0]), ('Left Hand', 'Right Hand'))
 
     ax.set_xticklabels(labels)
-    os.mkdir("individual-compliance-data/" + name)
+    if not os.path.exists("individual-compliance-data/" + name):
+        os.mkdir("individual-compliance-data/" + name)
     plt.savefig('individual-compliance-data/'+name+'/'+name+".png")
     print(name+'.png has been created')
     save_hours_per_day_chart_for_person(name, ind, hours_per_day_left, hours_per_day_right)
@@ -648,6 +649,57 @@ def save_chart_one_by_one(directory):
         save_chart_hours_per_day_per_person(participant, left_percentages, right_percentages, day_of_study_assessments, assessments)
 
 
+def create_binary_threshold_chart(directory):
+    date_dic = get_date_dic("HAMD_final_scores.csv")
+    for filename in get_files(directory):
+        participant = filename[:4]
+        print("Starting " + participant)
+        start_date = date_dic[participant]['Week 0']
+        left_days = split_into_days(directory + '/' + filename, left=True, start=start_date)
+        right_days = split_into_days(directory + '/' + filename, left=False, start=start_date)
+        left_percentages = per_day_percentages(left_days)
+        right_percentages = per_day_percentages(right_days)
+        left_binary_array = []
+        for percentage in left_percentages:
+            if percentage > 0.5:
+                left_binary_array.append(1)
+            else:
+                left_binary_array.append(0)
+        right_binary_array = []
+        for percentage in right_percentages:
+            if percentage > 0.5:
+                right_binary_array.append(1)
+            else:
+                right_binary_array.append(0)
+        save_binary_chart_individual(participant, left_binary_array, right_binary_array)
+        print(participant + " finished")
+        print()
+
+
+def save_binary_chart_individual(participant, left_binary_array, right_binary_array):
+    number_of_days = max(len(left_binary_array), len(right_binary_array))
+
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(16,4))
+    rects_left = ax.bar(np.arange(len(left_binary_array)), left_binary_array, width, color=PURPLE, label='Left')
+    rects_right = ax.bar(np.arange(len(right_binary_array))+width, right_binary_array, width, color=YELLOW, label='Right')
+    ax.set_xlabel('Day in Study')
+    ax.set_ylabel('12 hour threshold reached')
+    ax.set_title(participant+"'s Days recorded over 12 hours")
+    if number_of_days >= 7:
+        ax.set_xticks(np.arange(0, number_of_days, 7))
+    else:
+        ax.set_xticks(np.arange(0, number_of_days, 1))
+    ax.legend((rects_left, rects_right), ('Left Hand', 'Right Hand'))
+
+    plt.yticks([0,1])
+
+    if not os.path.exists("individual-compliance-data/" + participant):
+        os.mkdir("individual-compliance-data/" + participant)
+    plt.savefig("individual-compliance-data/"+participant+"/"+participant+" threshold.png")
+
+
 def get_date_dic(dates_csv_filepath):
     dates = pd.read_csv(dates_csv_filepath, index_col=0, usecols=['ID', 'Name', 'date'])
     participants = sorted(list(set(dates.index.values)))
@@ -752,7 +804,58 @@ def plot_individuals_to_days_uploaded():
     plt.show()
 
 
+
+
+# maps participant to a list of tuples, each of which represents a range of days [start day, end day)
+# for which to ignore the data
+def create_days_to_ignore(directory):
+    days_to_ignore = {}
+    for filename in get_files(directory):
+        days_to_ignore[filename[:4]] = []
+    days_to_ignore["M002"].append(( "7/10/16",  "7/19/16"))
+    days_to_ignore["M004"].append(( "6/26/16",  "7/1/16"))
+    days_to_ignore["M005"].append(( "6/27/16",  "7/10/16"))
+    days_to_ignore["M008"].append(( "9/20/16",  "9/26/16"))
+    days_to_ignore["M011"].append(( "10/5/16", "10/13/16"))
+    days_to_ignore["M013"].append(( "11/3/16",  "11/7/16"))
+    days_to_ignore["M016"].append(("10/30/16",  "11/8/16"))
+    days_to_ignore["M021"].append((  "1/3/17",  "1/12/17"))
+    days_to_ignore["M031"].append(( "3/31/17",  "4/1/17"))
+    days_to_ignore["M033"].append(( "3/18/17",  "3/19/17"))
+    days_to_ignore["M033"].append(( "3/30/17",  "3/31/17"))
+    days_to_ignore["M033"].append((  "4/6/17",  "4/24/17"))
+    days_to_ignore["M037"].append(( "5/23/17",  "5/24/17"))
+    days_to_ignore["M037"].append(( "5/30/17",   "6/6/17"))
+    days_to_ignore["M039"].append((  "6/2/17",  "6/10/17"))
+    days_to_ignore["M039"].append((  "7/1/17",   "7/7/17"))
+    days_to_ignore["M045"].append((  "7/5/17",  "7/11/17"))
+    days_to_ignore["M045"].append(( "7/17/17",  "7/18/17"))
+    days_to_ignore["M045"].append(( "7/26/17",   "8/1/17"))
+    days_to_ignore["M047"].append(( "8/23/17",  "8/29/17"))
+    days_to_ignore["M048"].append(( "9/15/17",  "9/18/17"))
+    days_to_ignore["M049"].append(( "8/17/17",  "8/23/17"))
+    days_to_ignore["M049"].append(( "9/22/17",  "9/25/17"))
+
+    date_dic = get_date_dic("HAMD_final_scores.csv")
+    days_to_ignore_ranges = {}
+    for participant in days_to_ignore:
+        days_to_ignore_ranges[participant] = []
+        for rangeStart, rangeEnd in days_to_ignore[participant]:
+            start = dt.strptime(rangeStart, '%m/%d/%y').replace(tzinfo=tz.gettz('America/New_York'))
+            end = dt.strptime(rangeEnd, '%m/%d/%y').replace(tzinfo=tz.gettz('America/New_York'))
+            week_0 = date_dic[participant]['Week 0']
+            days_to_start = (start - week_0).days
+            days_to_end = (end - week_0).days
+            days_to_ignore_ranges[participant].append((days_to_start, days_to_end))
+
+    return days_to_ignore_ranges
+
+
+
+
 # save_chart_one_by_one(TEMP_DIRECTORY)
+
+# create_binary_threshold_chart(TEMP_DIRECTORY)
 
 # make_minutes_per_hour_chart_both_hands(TEMP_DIRECTORY)
 # make_minutes_per_hour_chart_from_data(TEMP_DIRECTORY, left=True)
@@ -760,11 +863,13 @@ def plot_individuals_to_days_uploaded():
 
 # make_average_hours_per_day_chart_both_hands(TEMP_DIRECTORY)
 # make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=True)
-make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=False)
+# make_hours_per_day_chart_from_data(TEMP_DIRECTORY, left=False)
 
 # get_average_hours(TEMP_DIRECTORY, left=False)
 
 # write_average_percentages_file()
+
+
 
 # -----------------------------------------------
 # participants_to_assessment_dates('HAMD_final_scores.csv')
